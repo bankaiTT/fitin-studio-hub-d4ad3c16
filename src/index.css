@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 220 13% 5%;
+    --foreground: 0 0% 96%;
+
+    --card: 220 13% 8%;
+    --card-foreground: 0 0% 96%;
+
+    --popover: 220 13% 8%;
+    --popover-foreground: 0 0% 96%;
+
+    --primary: 265 100% 83%;
+    --primary-foreground: 220 13% 5%;
+
+    --secondary: 220 13% 12%;
+    --secondary-foreground: 0 0% 96%;
+
+    --muted: 220 13% 15%;
+    --muted-foreground: 0 0% 65%;
+
+    --accent: 265 100% 83%;
+    --accent-foreground: 220 13% 5%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 220 13% 15%;
+    --input: 220 13% 15%;
+    --ring: 265 100% 83%;
+
+    --radius: 0.75rem;
+    
+    --gradient-dark: linear-gradient(180deg, #0d0d0d 0%, #1a1a1a 100%);
+    --gradient-dark-radial: radial-gradient(circle at top, #1a1a1a 0%, #0d0d0d 100%);
+    --lavender-glow: 0 0 30px hsl(265 100% 83% / 0.4);
+    --lavender-glow-strong: 0 0 50px hsl(265 100% 83% / 0.6);
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 220 13% 5%;
+    --foreground: 0 0% 96%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-gradient-dark text-foreground font-poppins antialiased;
+  }
+  
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary to-purple-400 bg-clip-text text-transparent;
+  }
+  
+  .glass-card {
+    @apply bg-card/50 backdrop-blur-md border border-border/50;
+  }
+}
