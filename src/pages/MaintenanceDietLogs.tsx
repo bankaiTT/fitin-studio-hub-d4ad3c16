@@ -1,45 +1,20 @@
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Apple, Coffee, Beef, Moon, Calendar, Salad, Activity, Lock } from 'lucide-react';
+import { ArrowLeft, Apple, Coffee, Beef, Moon, Calendar, Salad, Activity } from 'lucide-react';
 import logo from '@/assets/fitin-final-logo.jpg';
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAdminStatus } from '@/hooks/useAdminStatus';
 
 const MaintenanceDietLogs = () => {
   const navigate = useNavigate();
   const [currentDate] = useState(new Date());
-  const { data: adminStatus } = useAdminStatus();
-
-  // Fetch user goals
-  const { data: userGoals } = useQuery({
-    queryKey: ['user-goals-maintain'],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-      
-      const { data } = await supabase
-        .from('user_goals')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('goal_type', 'maintain')
-        .maybeSingle();
-      
-      return data;
-    },
-  });
 
   const nutritionGoals = [
-    { label: 'Calories', value: userGoals?.maintenance_calories || 2100, current: 0, color: 'text-primary' },
-    { label: 'Protein', value: userGoals?.protein_grams || 130, unit: 'g', current: 0, color: 'text-green-500' },
-    { label: 'Carbs', value: userGoals?.carbs_grams || 230, unit: 'g', current: 0, color: 'text-blue-500' },
-    { label: 'Fat', value: userGoals?.fat_grams || 60, unit: 'g', current: 0, color: 'text-yellow-500' },
+    { label: 'Calories', value: 2100, current: 0, color: 'text-primary' },
+    { label: 'Protein', value: 130, unit: 'g', current: 0, color: 'text-green-500' },
+    { label: 'Carbs', value: 230, unit: 'g', current: 0, color: 'text-blue-500' },
+    { label: 'Fat', value: 60, unit: 'g', current: 0, color: 'text-yellow-500' },
   ];
-
-  const isAdmin = adminStatus?.isAdmin || false;
-  const isReadOnly = !isAdmin;
 
   const mealTypes = [
     { id: 'breakfast', name: 'Breakfast', icon: Coffee, time: '8:00 AM' },
@@ -103,12 +78,6 @@ const MaintenanceDietLogs = () => {
               <p className="text-muted-foreground text-lg">
                 Track your daily meals and maintain your current physique
               </p>
-              {isReadOnly && (
-                <div className="flex items-center gap-2 mt-2 text-sm text-amber-400">
-                  <Lock className="w-4 h-4" />
-                  <span>View-only mode. Contact admin to modify diet.</span>
-                </div>
-              )}
             </div>
             <div className="glass-card px-6 py-3 rounded-xl flex items-center gap-2">
               <Calendar className="w-5 h-5 text-primary" />
