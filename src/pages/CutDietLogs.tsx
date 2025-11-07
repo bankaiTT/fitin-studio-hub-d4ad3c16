@@ -1,20 +1,45 @@
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Apple, Coffee, Beef, Moon, Calendar, Salad, Activity } from 'lucide-react';
+import { ArrowLeft, Apple, Coffee, Beef, Moon, Calendar, Salad, Activity, Lock } from 'lucide-react';
 import logo from '@/assets/fitin-final-logo.jpg';
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAdminStatus } from '@/hooks/useAdminStatus';
 
 const CutDietLogs = () => {
   const navigate = useNavigate();
   const [currentDate] = useState(new Date());
+  const { data: adminStatus, isLoading: adminLoading } = useAdminStatus();
+
+  // Fetch user goals
+  const { data: userGoals } = useQuery({
+    queryKey: ['user-goals'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+      
+      const { data } = await supabase
+        .from('user_goals')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('goal_type', 'cut')
+        .maybeSingle();
+      
+      return data;
+    },
+  });
 
   const nutritionGoals = [
-    { label: 'Calories', value: 1680, current: 0, color: 'text-primary' },
-    { label: 'Protein', value: 140, unit: 'g', current: 0, color: 'text-green-500' },
-    { label: 'Carbs', value: 160, unit: 'g', current: 0, color: 'text-blue-500' },
-    { label: 'Fat', value: 50, unit: 'g', current: 0, color: 'text-yellow-500' },
+    { label: 'Calories', value: userGoals?.target_calories || 1680, current: 0, color: 'text-primary' },
+    { label: 'Protein', value: userGoals?.protein_grams || 140, unit: 'g', current: 0, color: 'text-green-500' },
+    { label: 'Carbs', value: userGoals?.carbs_grams || 160, unit: 'g', current: 0, color: 'text-blue-500' },
+    { label: 'Fat', value: userGoals?.fat_grams || 50, unit: 'g', current: 0, color: 'text-yellow-500' },
   ];
+
+  const isAdmin = adminStatus?.isAdmin || false;
+  const isReadOnly = !isAdmin;
 
   const mealTypes = [
     { id: 'breakfast', name: 'Breakfast', icon: Coffee, time: '8:00 AM' },
@@ -72,12 +97,20 @@ const CutDietLogs = () => {
         >
           <div className="flex items-center justify-between mb-12">
             <div>
-              <h1 className="text-4xl font-bold mb-2">
-                <span className="text-gradient">Cut Diet Plan</span>
-              </h1>
-              <p className="text-muted-foreground text-lg">
-                Track your meals with reduced calories for fat loss
-              </p>
+              <div>
+                <h1 className="text-4xl font-bold mb-2">
+                  <span className="text-gradient">Cut Diet Plan</span>
+                </h1>
+                <p className="text-muted-foreground text-lg">
+                  Track your meals with reduced calories for fat loss
+                </p>
+                {isReadOnly && (
+                  <div className="flex items-center gap-2 mt-2 text-sm text-amber-400">
+                    <Lock className="w-4 h-4" />
+                    <span>View-only mode. Contact admin to modify diet.</span>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="glass-card px-6 py-3 rounded-xl flex items-center gap-2">
               <Calendar className="w-5 h-5 text-primary" />
@@ -219,7 +252,12 @@ const CutDietLogs = () => {
                           <p className="text-sm text-muted-foreground">{meal.time}</p>
                         </div>
                       </div>
-                      <Button size="sm" variant="outline" className="border-primary/50">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="border-primary/50"
+                        disabled={isReadOnly}
+                      >
                         Add Food
                       </Button>
                     </div>
@@ -229,34 +267,42 @@ const CutDietLogs = () => {
                         type="text"
                         placeholder="e.g., Chicken Breast, Broccoli"
                         className="w-full bg-background/50 border border-border/50 rounded-lg px-4 py-2 text-sm focus:border-primary focus:outline-none"
+                        disabled={isReadOnly}
                       />
                       <div className="grid grid-cols-4 gap-2">
                         <input
                           type="number"
                           placeholder="Calories"
                           className="bg-background/50 border border-border/50 rounded-lg px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                          disabled={isReadOnly}
                         />
                         <input
                           type="number"
                           placeholder="Protein (g)"
                           className="bg-background/50 border border-border/50 rounded-lg px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                          disabled={isReadOnly}
                         />
                         <input
                           type="number"
                           placeholder="Carbs (g)"
                           className="bg-background/50 border border-border/50 rounded-lg px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                          disabled={isReadOnly}
                         />
                         <input
                           type="number"
                           placeholder="Fat (g)"
                           className="bg-background/50 border border-border/50 rounded-lg px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                          disabled={isReadOnly}
                         />
                       </div>
                     </div>
                   </motion.div>
                 ))}
 
-                <Button className="w-full bg-primary text-primary-foreground hover:shadow-lavender-glow">
+                <Button 
+                  className="w-full bg-primary text-primary-foreground hover:shadow-lavender-glow"
+                  disabled={isReadOnly}
+                >
                   Save Today's Log
                 </Button>
               </motion.div>

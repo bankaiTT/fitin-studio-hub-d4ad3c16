@@ -13,7 +13,8 @@ const detailsSchema = z.object({
   height: z.number().min(100, 'Height must be at least 100 cm').max(250, 'Height must be less than 250 cm'),
   weight: z.number().min(30, 'Weight must be at least 30 kg').max(300, 'Weight must be less than 300 kg'),
   age: z.number().min(13, 'Age must be at least 13').max(100, 'Age must be less than 100'),
-  goal: z.enum(['muscle-gain', 'fat-loss', 'maintenance']),
+  gender: z.enum(['male', 'female']),
+  activity_level: z.enum(['sedentary', 'lightly_active', 'moderately_active', 'very_active', 'extra_active']),
 });
 
 const PremiumDetails = () => {
@@ -21,7 +22,8 @@ const PremiumDetails = () => {
   const [height, setHeight] = useState('');
   const [weight, setWeight] = useState('');
   const [age, setAge] = useState('');
-  const [goal, setGoal] = useState('muscle-gain');
+  const [gender, setGender] = useState('male');
+  const [activityLevel, setActivityLevel] = useState('moderately_active');
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -39,20 +41,35 @@ const PremiumDetails = () => {
     setIsLoading(true);
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('You must be logged in');
+        navigate('/auth');
+        return;
+      }
+
       const data = {
         height: parseFloat(height),
         weight: parseFloat(weight),
         age: parseInt(age),
-        goal,
+        gender: gender as 'male' | 'female',
+        activity_level: activityLevel as 'sedentary' | 'lightly_active' | 'moderately_active' | 'very_active' | 'extra_active',
       };
 
       const validatedData = detailsSchema.parse(data);
 
-      // Store in localStorage for now
-      localStorage.setItem('premium_onboarding', JSON.stringify(validatedData));
+      // Save to database
+      const { error } = await supabase
+        .from('user_details')
+        .upsert({
+          user_id: user.id,
+          ...validatedData,
+        });
+
+      if (error) throw error;
 
       toast.success('Details saved successfully!');
-      navigate('/premium');
+      navigate('/premium-nutrition-tracker');
     } catch (error) {
       if (error instanceof z.ZodError) {
         toast.error(error.errors[0].message);
@@ -122,20 +139,34 @@ const PremiumDetails = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Fitness Goal</label>
+            <label className="block text-sm font-medium mb-2">Gender</label>
             <select
-              value={goal}
-              onChange={(e) => setGoal(e.target.value)}
+              value={gender}
+              onChange={(e) => setGender(e.target.value)}
               className="w-full bg-background/50 border border-border/50 rounded-lg px-4 py-3 text-foreground focus:border-primary focus:outline-none"
             >
-              <option value="muscle-gain">Muscle Gain</option>
-              <option value="fat-loss">Fat Loss</option>
-              <option value="maintenance">Maintenance</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Activity Level</label>
+            <select
+              value={activityLevel}
+              onChange={(e) => setActivityLevel(e.target.value)}
+              className="w-full bg-background/50 border border-border/50 rounded-lg px-4 py-3 text-foreground focus:border-primary focus:outline-none"
+            >
+              <option value="sedentary">Sedentary (little or no exercise)</option>
+              <option value="lightly_active">Lightly Active (1-3 days/week)</option>
+              <option value="moderately_active">Moderately Active (3-5 days/week)</option>
+              <option value="very_active">Very Active (6-7 days/week)</option>
+              <option value="extra_active">Extra Active (athlete level)</option>
             </select>
           </div>
 
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? 'Saving...' : 'Continue to Dashboard'} <ArrowRight className="ml-2" />
+            {isLoading ? 'Saving...' : 'Continue'} <ArrowRight className="ml-2" />
           </Button>
         </form>
       </Card>

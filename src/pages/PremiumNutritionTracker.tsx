@@ -7,11 +7,30 @@ import { ArrowLeft, LogOut, Camera, ArrowRight } from 'lucide-react';
 import logo from '@/assets/fitin-final-logo.jpg';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { calculateCalories } from '@/lib/calorieCalculator';
 
 const PremiumNutritionTracker = () => {
   const navigate = useNavigate();
-  const [maintenanceCalories, setMaintenanceCalories] = useState(2100);
+  const queryClient = useQueryClient();
+
+  // Fetch user details
+  const { data: userDetails, isLoading: detailsLoading } = useQuery({
+    queryKey: ['user-details'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+      
+      const { data, error } = await supabase
+        .from('user_details')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+  });
 
   // Fetch user plan
   const { data: userPlan } = useQuery({
@@ -31,6 +50,13 @@ const PremiumNutritionTracker = () => {
   });
 
   const isPaidPlan = userPlan?.plan_type === 'paid';
+
+  // Redirect to premium details if user hasn't filled details
+  useEffect(() => {
+    if (!detailsLoading && !userDetails) {
+      navigate('/premium-details');
+    }
+  }, [userDetails, detailsLoading, navigate]);
 
   // Redirect to free tracker if user doesn't have paid plan
   useEffect(() => {
@@ -53,22 +79,103 @@ const PremiumNutritionTracker = () => {
     await supabase.auth.signOut();
     navigate('/');
   };
+
+  // Save user goal mutation
+  const saveGoalMutation = useMutation({
+    mutationFn: async (goalData: { goal_type: 'cut' | 'bulk' | 'maintain'; calories: any }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('user_goals')
+        .upsert({
+          user_id: user.id,
+          goal_type: goalData.goal_type,
+          maintenance_calories: goalData.calories.maintenance_calories,
+          target_calories: goalData.calories.calories,
+          protein_grams: goalData.calories.protein,
+          carbs_grams: goalData.calories.carbs,
+          fat_grams: goalData.calories.fat,
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-goals'] });
+    },
+  });
   
-  const selectGoal = (goal: 'maintain' | 'cut' | 'bulk') => {
-    let targetCalories = maintenanceCalories;
-    
+  const selectGoal = async (goal: 'maintain' | 'cut' | 'bulk') => {
+    if (!userDetails) return;
+
+    // Calculate calories based on user details
+    const calorieResults = calculateCalories({
+      height: Number(userDetails.height),
+      weight: Number(userDetails.weight),
+      age: userDetails.age,
+      gender: userDetails.gender as 'male' | 'female',
+      activity_level: userDetails.activity_level as any,
+    });
+
+    let targetCalories = calorieResults.maintenance_calories;
+    let protein = calorieResults.protein_grams;
+    let carbs = calorieResults.carbs_grams;
+    let fat = calorieResults.fat_grams;
+
     if (goal === 'cut') {
-      targetCalories = Math.round(maintenanceCalories * 0.8);
+      targetCalories = calorieResults.cut_calories;
+      protein = Math.round((targetCalories * 0.3) / 4);
+      carbs = Math.round((targetCalories * 0.45) / 4);
+      fat = Math.round((targetCalories * 0.25) / 9);
+    } else if (goal === 'bulk') {
+      targetCalories = calorieResults.bulk_calories;
+      protein = Math.round((targetCalories * 0.3) / 4);
+      carbs = Math.round((targetCalories * 0.45) / 4);
+      fat = Math.round((targetCalories * 0.25) / 9);
+    }
+
+    // Save goal to database
+    await saveGoalMutation.mutateAsync({
+      goal_type: goal,
+      calories: {
+        maintenance_calories: calorieResults.maintenance_calories,
+        calories: targetCalories,
+        protein,
+        carbs,
+        fat,
+      },
+    });
+
+    toast.success(`${goal.charAt(0).toUpperCase() + goal.slice(1)} plan selected! Target: ${targetCalories} kcal/day`);
+
+    // Navigate to appropriate page
+    if (goal === 'cut') {
       navigate('/cut-diet-logs');
     } else if (goal === 'bulk') {
-      targetCalories = Math.round(maintenanceCalories * 1.15);
       navigate('/bulk-diet-logs');
     } else {
       navigate('/maintenance-diet-logs');
     }
-    
-    toast.success(`${goal.charAt(0).toUpperCase() + goal.slice(1)} plan selected! Target: ${targetCalories} kcal/day`);
   };
+
+  // Calculate calories dynamically
+  const maintenanceCalories = userDetails 
+    ? calculateCalories({
+        height: Number(userDetails.height),
+        weight: Number(userDetails.weight),
+        age: userDetails.age,
+        gender: userDetails.gender as 'male' | 'female',
+        activity_level: userDetails.activity_level as any,
+      }).maintenance_calories
+    : 2100;
+
+  if (detailsLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-dark flex items-center justify-center">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
   return (
     <div className="min-h-screen bg-gradient-dark flex items-center justify-center px-4 py-12">
       {/* Header */}
